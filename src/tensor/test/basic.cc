@@ -190,6 +190,17 @@ static void test(TensorDevice device)
     std::cout << dispatch<sum_op>(a) << " == " << sum(a) << std::endl;
   }
 
+  {
+    std::cout << "operators:" << std::endl;
+    Tensor a = rand({3, 7}, kFloat, device);
+    std::cout << a << std::endl;
+    for(auto i = 0; i < 3; i++) {
+      for(auto j = 0; j < 7; j++) {
+        a[i][j] = a[i][j] + 3.14;
+      }
+    }
+    std::cout << a << std::endl;
+  }
 }
 
 int main()
