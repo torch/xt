@@ -86,6 +86,18 @@ for(auto i = 0; i < 100000; i++) {
 }
 ```
 
+Operators are supported:
+```c++
+Tensor a = rand({3, 7}, kFloat, device);
+std::cout << a << std::endl; // ostream support
+for(auto i = 0; i < 3; i++) {
+  for(auto j = 0; j < 7; j++) {
+    a[i][j] = a[i][j] + 3.14; // various operators
+  }
+}
+std::cout << a << std::endl;
+```
+
 See more in [sample files](src/tensor/test).
 
 ### Creating your kernel
