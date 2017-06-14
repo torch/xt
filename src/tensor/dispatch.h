@@ -3,16 +3,20 @@
 
 #include "Tensor.h"
 #include <array>
+#include <utility>
 
 namespace xt {
 
 // Tensor version
-template<class F, class ... T>
-auto dispatch(Tensor& t, T&... args) -> typename std::result_of<decltype(&F::template cpu<int64_t>)(F&, Tensor&, T&...)>::type
+template<typename F, typename TensorT, typename... Args>
+auto dispatch(TensorT&& t, Args&&... args) -> typename std::result_of<decltype(&F::template cpu<int64_t>)(F&, TensorT&&, Args&&...)>::type
 {
-  using ReturnType = typename std::result_of<decltype(&F::template cpu<int64_t>)(F&, Tensor&, T&...)>::type;
+  using ReturnT = typename std::result_of<decltype(&F::template cpu<int64_t>)(F&, TensorT&&, Args&&...)>::type;
+  using FunctionT = std::function<ReturnT (F&, TensorT&&, Args&&...)>;
+  F functor;
+
   if(t.device() == kCPU) {
-    static std::array<std::function<ReturnType (F&, Tensor&, T&...)>, 7> dyn = {{
+    static std::array<FunctionT, 7> dyn = {{
         &F::template cpu<uint8_t>,
         &F::template cpu<int8_t>,
         &F::template cpu<int16_t>,
@@ -21,10 +25,9 @@ auto dispatch(Tensor& t, T&... args) -> typename std::result_of<decltype(&F::tem
         &F::template cpu<float>,
         &F::template cpu<double>,
       }};
-    F functor;
-    return dyn.at(t.type())(functor, t, args...);
+    return dyn.at(t.type())(functor, std::forward<TensorT>(t), std::forward<Args>(args)...);
   } else if(t.device() == kGPU) {
-    static std::array<std::function<ReturnType (F&, Tensor&, T&...)>, 7> dyn = {{
+    static std::array<FunctionT, 7> dyn = {{
         &F::template gpu<uint8_t>,
         &F::template gpu<int8_t>,
         &F::template gpu<int16_t>,
@@ -33,54 +36,22 @@ auto dispatch(Tensor& t, T&... args) -> typename std::result_of<decltype(&F::tem
         &F::template gpu<float>,
         &F::template gpu<double>,
       }};
-    F functor;
-    return dyn.at(t.type())(functor, t, args...);
+    return dyn.at(t.type())(functor, std::forward<TensorT>(t), std::forward<Args>(args)...);
   } else {
     throw std::invalid_argument("unsupported device");
   }
 }
 
 // Context, Tensor version
-template<class F, class ... T>
-auto dispatch(Context& ctx, Tensor& t, T&... args) -> typename std::result_of<decltype(&F::template cpu<int64_t>)(F&, Context&, Tensor&, T&...)>::type
+template<typename F, typename TensorT, typename... Args>
+auto dispatch(Context& ctx, TensorT&& t, Args&&... args) -> typename std::result_of<decltype(&F::template cpu<int64_t>)(F&, Context&, TensorT&&, Args&&...)>::type
 {
-  using ReturnType = typename std::result_of<decltype(&F::template cpu<int64_t>)(F&, Context&, Tensor&, T&...)>::type;
-  if(t.device() == kCPU) {
-    static std::array<std::function<ReturnType (F&, Context&, Tensor&, T&...)>, 7> dyn = {{
-        &F::template cpu<uint8_t>,
-        &F::template cpu<int8_t>,
-        &F::template cpu<int16_t>,
-        &F::template cpu<int32_t>,
-        &F::template cpu<int64_t>,
-        &F::template cpu<float>,
-        &F::template cpu<double>,
-      }};
-    F functor;
-    return dyn.at(t.type())(functor, t, args...);
-  } else if(t.device() == kGPU) {
-    static std::array<std::function<ReturnType (F&, Context&, Tensor&, T&...)>, 7> dyn = {{
-        &F::template gpu<uint8_t>,
-        &F::template gpu<int8_t>,
-        &F::template gpu<int16_t>,
-        &F::template gpu<int32_t>,
-        &F::template gpu<int64_t>,
-        &F::template gpu<float>,
-        &F::template gpu<double>,
-      }};
-    F functor;
-    return dyn.at(t.type())(functor, ctx, t, args...);
-  } else {
-    throw std::invalid_argument("unsupported device");
-  }
-}
+  using ReturnT = typename std::result_of<decltype(&F::template cpu<int64_t>)(F&, Context&, TensorT&&, Args&&...)>::type;
+  using FunctionT = std::function<ReturnT (F&, Context&, TensorT&&, Args&&...)>;
+  F functor;
 
-// const Tensor version
-template<class F, class ... T>
-auto dispatch(const Tensor& t, T&... args) -> typename std::result_of<decltype(&F::template cpu<int64_t>)(F&, const Tensor&, T&...)>::type
-{
-  using ReturnType = typename std::result_of<decltype(&F::template cpu<int64_t>)(F&, const Tensor&, T&...)>::type;
   if(t.device() == kCPU) {
-    static std::array<std::function<ReturnType (F&, const Tensor&, T&...)>, 7> dyn = {{
+    static std::array<FunctionT, 7> dyn = {{
         &F::template cpu<uint8_t>,
         &F::template cpu<int8_t>,
         &F::template cpu<int16_t>,
@@ -89,10 +60,9 @@ auto dispatch(const Tensor& t, T&... args) -> typename std::result_of<decltype(&
         &F::template cpu<float>,
         &F::template cpu<double>,
       }};
-    F functor;
-    return dyn.at(t.type())(functor, t, args...);
+    return dyn.at(t.type())(functor, ctx, std::forward<TensorT>(t), std::forward<Args>(args)...);
   } else if(t.device() == kGPU) {
-    static std::array<std::function<ReturnType (F&, const Tensor&, T&...)>, 7> dyn = {{
+    static std::array<FunctionT, 7> dyn = {{
         &F::template gpu<uint8_t>,
         &F::template gpu<int8_t>,
         &F::template gpu<int16_t>,
@@ -101,54 +71,22 @@ auto dispatch(const Tensor& t, T&... args) -> typename std::result_of<decltype(&
         &F::template gpu<float>,
         &F::template gpu<double>,
       }};
-    F functor;
-    return dyn.at(t.type())(functor, t, args...);
-  } else {
-    throw std::invalid_argument("unsupported device");
-  }
-}
-
-// Context, const Tensor version
-template<class F, class ... T>
-auto dispatch(Context& ctx, const Tensor& t, T&... args) -> typename std::result_of<decltype(&F::template cpu<int64_t>)(F&, Context&, const Tensor&, T&...)>::type
-{
-  using ReturnType = typename std::result_of<decltype(&F::template cpu<int64_t>)(F&, Context&, const Tensor&, T&...)>::type;
-  if(t.device() == kCPU) {
-    static std::array<std::function<ReturnType (F&, Context&, const Tensor&, T&...)>, 7> dyn = {{
-        &F::template cpu<uint8_t>,
-        &F::template cpu<int8_t>,
-        &F::template cpu<int16_t>,
-        &F::template cpu<int32_t>,
-        &F::template cpu<int64_t>,
-        &F::template cpu<float>,
-        &F::template cpu<double>,
-      }};
-    F functor;
-    return dyn.at(t.type())(functor, ctx, t, args...);
-  } else if(t.device() == kGPU) {
-    static std::array<std::function<ReturnType (F&, Context&, const Tensor&, T&...)>, 7> dyn = {{
-        &F::template gpu<uint8_t>,
-        &F::template gpu<int8_t>,
-        &F::template gpu<int16_t>,
-        &F::template gpu<int32_t>,
-        &F::template gpu<int64_t>,
-        &F::template gpu<float>,
-        &F::template gpu<double>,
-      }};
-    F functor;
-    return dyn.at(t.type())(functor, ctx, t, args...);
+    return dyn.at(t.type())(functor, ctx, std::forward<TensorT>(t), std::forward<Args>(args)...);
   } else {
     throw std::invalid_argument("unsupported device");
   }
 }
 
 // type/device version
-template<class F, class ... T>
-auto dispatch(TensorType ttype, TensorDevice tdev, T&... args) -> typename std::result_of<decltype(&F::template cpu<int64_t>)(F&, T&...)>::type
+template<typename F, typename... Args>
+auto dispatch(TensorType ttype, TensorDevice tdev, Args&&... args) -> typename std::result_of<decltype(&F::template cpu<int64_t>)(F&, Args&&...)>::type
 {
-  using ReturnType = typename std::result_of<decltype(&F::template cpu<int64_t>)(F&, T&...)>::type;
+  using ReturnT = typename std::result_of<decltype(&F::template cpu<int64_t>)(F&, Args&&...)>::type;
+  using FunctionT = std::function<ReturnT (F&, Args&&...)>;
+  F functor;
+
   if(tdev == kCPU) {
-    static std::array<std::function<ReturnType (F&, T&...)>, 7> dyn = {{
+    static std::array<FunctionT, 7> dyn = {{
         &F::template cpu<uint8_t>,
         &F::template cpu<int8_t>,
         &F::template cpu<int16_t>,
@@ -157,10 +95,9 @@ auto dispatch(TensorType ttype, TensorDevice tdev, T&... args) -> typename std::
         &F::template cpu<float>,
         &F::template cpu<double>,
       }};
-    F functor;
-    return dyn.at(ttype)(functor, args...);
+    return dyn.at(ttype)(functor, std::forward<Args>(args)...);
   } else if(tdev == kGPU) {
-    static std::array<std::function<ReturnType (F&, T&...)>, 7> dyn = {{
+    static std::array<FunctionT, 7> dyn = {{
         &F::template gpu<uint8_t>,
         &F::template gpu<int8_t>,
         &F::template gpu<int16_t>,
@@ -169,8 +106,7 @@ auto dispatch(TensorType ttype, TensorDevice tdev, T&... args) -> typename std::
         &F::template gpu<float>,
         &F::template gpu<double>,
       }};
-    F functor;
-    return dyn.at(ttype)(functor, args...);
+    return dyn.at(ttype)(functor, std::forward<Args>(args)...);
   } else {
     throw std::invalid_argument("unsupported device");
   }
