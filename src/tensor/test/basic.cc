@@ -4,7 +4,7 @@
 
 using namespace xt;
 
-struct sum_op
+struct sum_op_ref
 {
   template<typename T> Tensor cpu(Tensor& x)
   {
@@ -19,7 +19,55 @@ struct sum_op
     }
     return sum;
   };
+
+
   template<typename T> Tensor gpu(Tensor& x)
+  {
+    throw std::invalid_argument("device not supported");
+  };
+};
+
+struct sum_op_const_ref
+{
+  template<typename T> Tensor cpu(const Tensor& x)
+  {
+    if(!isContiguous(x)) {
+      throw std::invalid_argument("contiguous tensor expected");
+    }
+    T* x_p = x.data<T>();
+    int64_t size = numel(x);
+    T sum = 0;
+    for(int64_t i = 0; i < size; i++) {
+      sum += x_p[i];
+    }
+    return sum;
+  };
+
+
+  template<typename T> Tensor gpu(const Tensor& x)
+  {
+    throw std::invalid_argument("device not supported");
+  };
+};
+
+struct sum_op_rvalue_ref
+{
+  template<typename T> Tensor cpu(Tensor&& x)
+  {
+    if(!isContiguous(x)) {
+      throw std::invalid_argument("contiguous tensor expected");
+    }
+    T* x_p = x.data<T>();
+    int64_t size = numel(x);
+    T sum = 0;
+    for(int64_t i = 0; i < size; i++) {
+      sum += x_p[i];
+    }
+    return sum;
+  };
+
+
+  template<typename T> Tensor gpu(const Tensor&& x)
   {
     throw std::invalid_argument("device not supported");
   };
@@ -184,10 +232,26 @@ static void test(TensorDevice device)
 
   if(device == kCPU)
   {
-    std::cout << "manual sum:" << std::endl;
+    std::cout << "manual sum (ref dispatch):" << std::endl;
     Tensor a = rand({3, 7}, kFloat, device);
     std::cout << a << std::endl;
-    std::cout << dispatch<sum_op>(a) << " == " << sum(a) << std::endl;
+    std::cout << dispatch<sum_op_ref>(a) << " == " << sum(a) << std::endl;
+  }
+
+  if(device == kCPU)
+  {
+    std::cout << "manual sum (const ref dispatch):" << std::endl;
+    const Tensor a = rand({3, 7}, kFloat, device);
+    std::cout << a << std::endl;
+    std::cout << dispatch<sum_op_const_ref>(a) << " == " << sum(a) << std::endl;
+  }
+
+  if(device == kCPU)
+  {
+    std::cout << "manual sum (rvalue ref dispatch):" << std::endl;
+    Tensor a = rand({3, 7}, kFloat, device);
+    std::cout << a << std::endl;
+    std::cout << dispatch<sum_op_rvalue_ref>(std::move(a)) << " == " << sum(a) << std::endl;
   }
 
   {
